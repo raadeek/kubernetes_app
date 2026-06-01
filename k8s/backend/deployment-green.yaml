@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-blue
+  name: backend-green
   namespace: zad4
   labels:
     app: backend
-    version: blue
+    version: green
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: backend
-      version: blue
+      version: green
   template:
     metadata:
       labels:
         app: backend
-        version: blue
+        version: green
     spec:
       containers:
         - name: backend
-          image: task-manager-backend:v1.0.0
+          image: task-manager-backend:v2.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
             - name: APP_VERSION
-              value: "1.0.0"
+              value: "2.0.0"
           envFrom:
             - configMapRef:
                 name: app-config

@@ -3,6 +3,8 @@ const { URL } = require("url");
 const { Pool } = require("pg");
 
 const PORT = Number(process.env.PORT || 8080);
+const APP_VERSION = process.env.APP_VERSION || "2.0.0";
+const VALID_PRIORITIES = new Set(["low", "medium", "high"]);
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -66,10 +68,13 @@ async function ensureSchema() {
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'medium',
         completed BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
-    `).catch((error) => {
+    `).then(() => pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'medium'"
+    )).catch((error) => {
       schemaPromise = undefined;
       throw error;
     });
@@ -82,6 +87,7 @@ function normalizeTask(row) {
   return {
     id: row.id,
     title: row.title,
+    priority: row.priority || "medium",
     completed: row.completed,
     createdAt: row.created_at
   };
@@ -91,7 +97,11 @@ async function handleHealth(res) {
   try {
     await ensureSchema();
     await pool.query("SELECT 1");
-    sendJson(res, 200, { status: "ok", database: "connected" });
+    const payload = { status: "ok", database: "connected" };
+    if (APP_VERSION !== "1.0.0") {
+      payload.version = APP_VERSION;
+    }
+    sendJson(res, 200, payload);
   } catch (error) {
     sendJson(res, 503, { status: "unavailable", database: "disconnected" });
   }
@@ -100,7 +110,7 @@ async function handleHealth(res) {
 async function listTasks(res) {
   await ensureSchema();
   const result = await pool.query(
-    "SELECT id, title, completed, created_at FROM tasks ORDER BY id"
+    "SELECT id, title, priority, completed, created_at FROM tasks ORDER BY id"
   );
   sendJson(res, 200, result.rows.map(normalizeTask));
 }
@@ -109,6 +119,7 @@ async function createTask(req, res) {
   await ensureSchema();
   const payload = await readJson(req);
   const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const priority = typeof payload.priority === "string" ? payload.priority : "medium";
   const completed = typeof payload.completed === "boolean" ? payload.completed : false;
 
   if (!title) {
@@ -116,9 +127,14 @@ async function createTask(req, res) {
     return;
   }
 
+  if (!VALID_PRIORITIES.has(priority)) {
+    sendJson(res, 400, { error: "Field 'priority' must be one of: low, medium, high" });
+    return;
+  }
+
   const result = await pool.query(
-    "INSERT INTO tasks (title, completed) VALUES ($1, $2) RETURNING id, title, completed, created_at",
-    [title, completed]
+    "INSERT INTO tasks (title, priority, completed) VALUES ($1, $2, $3) RETURNING id, title, priority, completed, created_at",
+    [title, priority, completed]
   );
 
   sendJson(res, 201, normalizeTask(result.rows[0]));
@@ -145,14 +161,23 @@ async function updateTask(req, res, id) {
     updates.push(`completed = $${values.length}`);
   }
 
+  if (typeof payload.priority === "string") {
+    if (!VALID_PRIORITIES.has(payload.priority)) {
+      sendJson(res, 400, { error: "Field 'priority' must be one of: low, medium, high" });
+      return;
+    }
+    values.push(payload.priority);
+    updates.push(`priority = $${values.length}`);
+  }
+
   if (updates.length === 0) {
-    sendJson(res, 400, { error: "Provide 'title' or 'completed' to update" });
+    sendJson(res, 400, { error: "Provide 'title', 'priority' or 'completed' to update" });
     return;
   }
 
   values.push(id);
   const result = await pool.query(
-    `UPDATE tasks SET ${updates.join(", ")} WHERE id = $${values.length} RETURNING id, title, completed, created_at`,
+    `UPDATE tasks SET ${updates.join(", ")} WHERE id = $${values.length} RETURNING id, title, priority, completed, created_at`,
     values
   );
 

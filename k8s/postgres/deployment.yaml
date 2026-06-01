@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: zad3
+  namespace: zad4
   labels:
     app: postgres
 spec:

@@ -1,0 +1,172 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f7fb;
+  color: #18212f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.shell {
+  width: min(920px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #4b647f;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.health {
+  min-width: 180px;
+  padding: 10px 12px;
+  border: 1px solid #c9d5e4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2e4057;
+  font-size: 14px;
+  text-align: center;
+}
+
+.health.ok {
+  border-color: #80c99b;
+  color: #146b35;
+}
+
+.health.error {
+  border-color: #dc8a8a;
+  color: #9d1f1f;
+}
+
+.task-form {
+  display: grid;
+  grid-template-columns: 1fr 160px 112px;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+input,
+select,
+button {
+  height: 44px;
+  border-radius: 8px;
+  font: inherit;
+}
+
+input,
+select {
+  border: 1px solid #c9d5e4;
+  background: #ffffff;
+  color: #18212f;
+  padding: 0 12px;
+}
+
+button {
+  border: 0;
+  background: #146b5f;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.status {
+  min-height: 22px;
+  color: #4b647f;
+  font-size: 14px;
+}
+
+.tasks {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 8px 0 0;
+  list-style: none;
+}
+
+.task {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.task-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.task-meta {
+  margin-top: 4px;
+  color: #5d7189;
+  font-size: 13px;
+}
+
+.priority {
+  min-width: 78px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.priority-low {
+  background: #e8f5ed;
+  color: #17613b;
+}
+
+.priority-medium {
+  background: #fff3d6;
+  color: #805200;
+}
+
+.priority-high {
+  background: #ffe3e0;
+  color: #9d1f1f;
+}
+
+@media (max-width: 680px) {
+  .toolbar,
+  .task-form,
+  .task {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+}

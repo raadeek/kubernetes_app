@@ -22,41 +22,78 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Zbuduj i opublikuj obraz
+      - name: Zbuduj i opublikuj backend v2.0.0
         uses: docker/build-push-action@v5
         with:
           context: ./app/backend
           push: true
-          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}/backend:v1.0.0
+            ghcr.io/${{ github.repository }}/backend:v2.0.0
+            ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+
+      - name: Zbuduj i opublikuj frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app/frontend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/frontend:1.0.0
+            ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
 
       - name: Uruchom klaster kind
         uses: helm/kind-action@v1
         with:
           cluster_name: test-cluster
+          config: .github/kind-config.yaml
 
-      - name: Zaladuj obraz do kind
+      - name: Zainstaluj nginx Ingress Controller
         run: |
-          docker pull ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
-          kind load docker-image \
-            ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
-            --name test-cluster
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=180s
+
+      - name: Zaladuj obrazy do kind
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/backend:v1.0.0
+          docker pull ghcr.io/${{ github.repository }}/backend:v2.0.0
+          docker pull ghcr.io/${{ github.repository }}/frontend:1.0.0
+          kind load docker-image ghcr.io/${{ github.repository }}/backend:v1.0.0 --name test-cluster
+          kind load docker-image ghcr.io/${{ github.repository }}/backend:v2.0.0 --name test-cluster
+          kind load docker-image ghcr.io/${{ github.repository }}/frontend:1.0.0 --name test-cluster
 
       - name: Wdroz system
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/postgres/
           kubectl apply -f k8s/backend/
-          kubectl set image deployment/backend \
-            backend=ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
-            -n zad3
+          kubectl apply -f k8s/frontend/
+          kubectl apply -f k8s/ingress/
+          kubectl set image deployment/backend-blue \
+            backend=ghcr.io/${{ github.repository }}/backend:v1.0.0 \
+            -n zad4
+          kubectl set image deployment/backend-green \
+            backend=ghcr.io/${{ github.repository }}/backend:v2.0.0 \
+            -n zad4
+          kubectl set image deployment/frontend \
+            frontend=ghcr.io/${{ github.repository }}/frontend:1.0.0 \
+            -n zad4
 
       - name: Poczekaj na gotowosc Podow
         run: |
-          kubectl rollout status deployment/postgres -n zad3 --timeout=120s
-          kubectl rollout status deployment/backend -n zad3 --timeout=120s
+          kubectl rollout status deployment/postgres -n zad4 --timeout=180s
+          kubectl rollout status deployment/backend-blue -n zad4 --timeout=180s
+          kubectl rollout status deployment/backend-green -n zad4 --timeout=180s
+          kubectl rollout status deployment/frontend -n zad4 --timeout=180s
 
-      - name: Test HTTP
+      - name: Przelacz ruch na green
         run: |
-          kubectl port-forward service/backend-service 8080:8080 -n zad3 &
-          sleep 5
-          curl --fail http://localhost:8080/health
+          kubectl patch service backend-service -n zad4 \
+            -p '{"spec":{"selector":{"app":"backend","version":"green"}}}'
+
+      - name: Test HTTP przez Ingress
+        run: |
+          curl --fail http://localhost/api/health
+          curl --fail http://localhost/api/tasks
