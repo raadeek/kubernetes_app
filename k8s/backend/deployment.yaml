@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
-  namespace: zad2
+  namespace: zad3
   labels:
     app: backend
 spec:
@@ -32,6 +32,7 @@ spec:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 15
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /health

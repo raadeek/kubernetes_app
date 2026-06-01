@@ -2,11 +2,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  namespace: zad2
+  namespace: zad3
 data:
   DB_HOST: postgres-service
   DB_PORT: "5432"
   DB_NAME: appdb
   DB_USER: appuser
+  PGDATA: /var/lib/postgresql/data/pgdata
   POSTGRES_DB: appdb
   POSTGRES_USER: appuser

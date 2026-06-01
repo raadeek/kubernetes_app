@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Zaloguj do ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Zbuduj i opublikuj obraz
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app/backend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+
+      - name: Uruchom klaster kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: test-cluster
+
+      - name: Zaladuj obraz do kind
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+          kind load docker-image \
+            ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
+            --name test-cluster
+
+      - name: Wdroz system
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/postgres/
+          kubectl apply -f k8s/backend/
+          kubectl set image deployment/backend \
+            backend=ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
+            -n zad3
+
+      - name: Poczekaj na gotowosc Podow
+        run: |
+          kubectl rollout status deployment/postgres -n zad3 --timeout=120s
+          kubectl rollout status deployment/backend -n zad3 --timeout=120s
+
+      - name: Test HTTP
+        run: |
+          kubectl port-forward service/backend-service 8080:8080 -n zad3 &
+          sleep 5
+          curl --fail http://localhost:8080/health
