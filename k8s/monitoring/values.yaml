@@ -1,0 +1,20 @@
+grafana:
+  adminPassword: admin123
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+
+# Komponenty control plane klastra kind wystawiaja metryki tylko na localhost,
+# dlatego Prometheus nie moze ich pobierac przez siec Poda.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
